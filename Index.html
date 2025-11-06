@@ -3,66 +3,78 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Roblox Lua Obfuscator - High Protection (Fixed)</title>
+  <title>Roblox Lua Obfuscator - HIGH PROTECTION</title>
   <style>
+    * { box-sizing: border-box; }
     body {
       font-family: 'Courier New', monospace;
-      background: #0d0d0d;
-      color: #00ff00;
-      padding: 20px;
-    }
-    textarea, button, pre {
-      width: 100%;
-      margin: 10px 0;
-      padding: 15px;
-      border: 1px solid #00ff00;
       background: #000;
-      color: #00ff00;
-      font-family: 'Courier New', monospace;
-    }
-    button {
-      background: #003300;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    button:hover {
-      background: #004400;
+      color: #0f0;
+      padding: 20px;
+      margin: 0;
     }
     .container {
       max-width: 900px;
       margin: auto;
+      border: 1px solid #0f0;
+      padding: 20px;
+      border-radius: 8px;
     }
-    h1 {
-      text-align: center;
-      color: #00ff00;
-      text-shadow: 0 0 5px #00ff00;
+    h1 { text-align: center; text-shadow: 0 0 10px #0f0; margin-bottom: 20px; }
+    textarea, pre {
+      width: 100%;
+      background: #111;
+      color: #0f0;
+      border: 1px solid #0f0;
+      padding: 15px;
+      font-family: 'Courier New', monospace;
+      margin: 10px 0;
+      border-radius: 5px;
     }
+    textarea { height: 180px; resize: vertical; }
+    pre { height: 300px; overflow: auto; white-space: pre-wrap; word-wrap: break-word; }
+    button {
+      background: #003300;
+      color: #0f0;
+      border: 1px solid #0f0;
+      padding: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+      margin: 10px 0;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+    button:hover { background: #004400; }
+    .status { text-align: center; font-size: 14px; margin: 10px 0; color: #0f0; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>ROBLOX LUA OBFUSCATOR [HIGH PROTECTION - FIXED]</h1>
-    
-    <label for="input">Masukkan Script Lua:</label>
-    <textarea id="input" rows="10" placeholder="tempel script lua di sini..."></textarea>
-    
-    <button onclick="obfuscate()">OBFUSCATE SEKARANG</button>
-    
-    <label for="output">Hasil Obfuscated:</label>
-    <pre id="output" style="height: 300px; overflow: auto; border: 1px solid #00ff00; white-space: pre-wrap;">-- Output akan muncul di sini...</pre>
-    
-    <button onclick="copyOutput()">Copy Hasil</button>
+    <h1>ROBLOX LUA OBFUSCATOR [HIGH PROTECTION]</h1>
+    <p class="status" id="status">Status: Siap</p>
+
+    <label><strong>Script Lua Asli:</strong></label>
+    <textarea id="input" placeholder="print('Hello World')"></textarea>
+
+    <button id="obfuscateBtn">OBFUSCATE SEKARANG</button>
+
+    <label><strong>Hasil Obfuscated:</strong></label>
+    <pre id="output">-- Output akan muncul di sini...</pre>
+
+    <button id="copyBtn">COPY HASIL</button>
   </div>
 
   <script>
-    // === ENCRYPTION & OBFUSCATION CORE ===
-    const junkFuncs = [
-      'local _ = math.random(1,999999)',
-      'local __ = string.rep("x", math.random(10,50))',
-      'for _=1,math.random(5,20) do end',
-      'task.wait(math.random()/1000)',
-      'local ___ = os.clock()',
-    ];
+    // === UTILS ===
+    const $ = (id) => document.getElementById(id);
+    const status = $('status');
+    const input = $('input');
+    const output = $('output');
+
+    function setStatus(msg) {
+      status.textContent = 'Status: ' + msg;
+    }
 
     function xorEncrypt(str, key) {
       let result = '';
@@ -72,140 +84,125 @@
       return btoa(result).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
     }
 
-    function generateRandomVar() {
+    function randomVar() {
       const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
       let v = '_';
-      for (let i = 0; i < 8; i++) {
-        v += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
+      for (let i = 0; i < 10; i++) v += chars[Math.floor(Math.random() * chars.length)];
       return v;
     }
 
-    function injectJunk(code, count = 15) {
-      let lines = code.split('\n');
-      let result = [];
+    function injectJunk(code) {
+      const junks = [
+        'local _ = math.random(1,999999)',
+        'local __ = string.rep("x", math.random(5,30))',
+        'for _=1,math.random(3,15) do end',
+        'task.wait(math.random()/1000)',
+        'local ___ = os.clock()'
+      ];
+      const lines = code.split('\n');
+      const result = [];
+      let junkCount = 0;
       for (let line of lines) {
-        result.push(line);
-        if (Math.random() < 0.3 && count > 0) {
-          result.push(junkFuncs[Math.floor(Math.random() * junkFuncs.length)]);
-          count--;
+        result.push(line.trim());
+        if (Math.random() < 0.25 && junkCount < 18) {
+          result.push(junks[Math.floor(Math.random() * junks.length)]);
+          junkCount++;
         }
       }
       return result.join('\n');
     }
 
-    function flattenControlFlow(code) {
-      const states = generateRandomVar();
-      const dispatcher = generateRandomVar();
-      return `
-        local ${states} = 0
-        local ${dispatcher} = function()
-          while true do
-            if ${states} == 0 then
-              ${code.replace(/\n/g, '\n              ')}
-              break
-            end
-          end
-        end
-        ${dispatcher}()
-      `;
-    }
-
-    function antiTamper() {
-      const check = generateRandomVar();
-      return `
-        local ${check} = function()
-          local src = debug.getinfo(1).source
-          if src:find("obfuscated") then return end
-          while true do task.wait(1) end
-        end
-        spawn(${check})
-      `;
-    }
-
-    function obfuscate() {
-      const input = document.getElementById('input').value;
-      if (!input.trim()) {
-        alert('Masukkan script Lua terlebih dahulu!');
-        return;
-      }
-
-      let code = input;
-
-      // 1. Ganti semua string jadi XOR encrypted dengan decoder Lua
-      code = code.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/g, (match, str) => {
-        const key = Math.random().toString(36).substring(2, 10);
-        const encrypted = xorEncrypt(str, key);
-        const decFunc = generateRandomVar();
-        return `(function() local ${decFunc}=function(s,k) local r='' for i=1,#s do r=r..string.char(string.byte(s,i)~string.byte(k,(i-1)%#k+1)) end return r end return ${decFunc}(atob("${encrypted}":gsub("-","+"):gsub("_","/")..string.rep("=",(-#("${encrypted}")%4)%3)),"${key}") end)()`;
-      });
-
-      // 2. Rename local variables
-      const varMap = {};
-      code = code.replace(/local\s+([a-zA-Z_][a-zA-Z0-9_]*)/g, (match, name) => {
-        if (!varMap[name]) {
-          varMap[name] = generateRandomVar();
-        }
-        return `local ${varMap[name]}`;
-      });
-      code = code.replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g, (match) => varMap[match] || match); // Ganti penggunaan var juga
-
-      // 3. Inject junk code
-      code = injectJunk(code, 20);
-
-      // 4. Control flow flattening
-      code = flattenControlFlow(code);
-
-      // 5. Tambah anti-tamper
-      code = antiTamper() + '\n' + code;
-
-      // 6. Wrap dengan self-executing environment + tambah polyfill atob Lua
-      const env = generateRandomVar();
-      const exec = generateRandomVar();
-      const atobPolyfill = `
-local atob = function(str)
+    // === ATOB POLYFILL UNTUK LUA ===
+    const atobLua = `
+local function atob(str)
   local b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
   str = str:gsub("[^%w+/=]", "")
-  local padding = str:sub(-2) == "==" and 2 or (str:sub(-1) == "=" and 1 or 0)
-  local result = ""
-  local bytes = {}
+  local pad = (str:sub(-2,-1) == "==" and 2) or (str:sub(-1) == "=" and 1) or 0
+  local out = {}
   for i = 1, #str, 4 do
     local a = b64:find(str:sub(i,i)) - 1
     local b = b64:find(str:sub(i+1,i+1)) - 1
     local c = b64:find(str:sub(i+2,i+2)) - 1
     local d = b64:find(str:sub(i+3,i+3)) - 1
-    table.insert(bytes, bit32.lshift(a, 2) + bit32.rshift(b, 4))
-    if c >= 0 then table.insert(bytes, bit32.lshift(bit32.band(b, 15), 4) + bit32.rshift(c, 2)) end
-    if d >= 0 then table.insert(bytes, bit32.lshift(bit32.band(c, 3), 6) + d) end
+    table.insert(out, bit32.lshift(a, 2) + bit32.rshift(b, 4))
+    if c >= 0 then table.insert(out, bit32.lshift(bit32.band(b,15),4) + bit32.rshift(c,2)) end
+    if d >= 0 then table.insert(out, bit32.lshift(bit32.band(c,3),6) + d) end
   end
-  for i = 1, #bytes - padding do
-    result = result .. string.char(bytes[i])
-  end
+  local result = ""
+  for i = 1, #out - pad do result = result .. string.char(out[i]) end
   return result
-end
-      `.trim();
+end`.trim();
 
-      const finalCode = `
--- [=== OBFUSCATED BY HIGH PROTECTION OBFUSCATOR (FIXED) ===]
-${atobPolyfill}
-local ${env} = getfenv()
-local ${exec} = (function()
-  ${code}
-end)
-setfenv(${exec}, ${env})
-${exec}()
--- [=== END ===]
-      `.trim();
+    // === MAIN OBFUSCATE ===
+    function obfuscateCode() {
+      const raw = input.value.trim();
+      if (!raw) {
+        alert('Masukkan script Lua dulu!');
+        return;
+      }
 
-      document.getElementById('output').textContent = finalCode;
-    }
+      setStatus('Sedang meng-obfuscate...');
+      
+      let code = raw;
 
-    function copyOutput() {
-      const output = document.getElementById('output').textContent;
-      navigator.clipboard.writeText(output).then(() => {
-        alert('Hasil obfuscated berhasil disalin!');
+      // 1. ENKRIPSI STRING
+      code = code.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/g, (m, s) => {
+        if (s.includes('\n')) return m; // skip multiline
+        const key = Math.random().toString(36).substr(2, 8);
+        const enc = xorEncrypt(s, key);
+        const fn = randomVar();
+        return `(function() local ${fn}=function(s,k) local r='' for i=1,#s do r=r..string.char(string.byte(s,i)~string.byte(k,(i-1)%#k+1)) end return r end return ${fn}(atob("${enc}":gsub("-","+"):gsub("_","/")..string.rep("=",(-#("${enc}")%4)%3)),"${key}") end)()`;
       });
+
+      // 2. RENAME LOCAL VAR
+      const varMap = {};
+      code = code.replace(/local\s+([a-zA-Z_][a-zA-Z0-9_]*)/g, (m, name) => {
+        if (!varMap[name]) varMap[name] = randomVar();
+        return `local ${varMap[name]}`;
+      });
+      code = code.replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g, m => varMap[m] || m);
+
+      // 3. JUNK CODE
+      code = injectJunk(code);
+
+      // 4. CONTROL FLOW (simplified)
+      const stateVar = randomVar();
+      const execVar = randomVar();
+      code = `local ${stateVar}=0; local ${execVar}=function() while true do if ${stateVar}==0 then ${code.replace(/\n/g, '\n    ')} break end end end; ${execVar}()`;
+
+      // 5. ANTI-TAMPER
+      const checkVar = randomVar();
+      const antiTamper = `spawn(function() while true do task.wait(1) local src=debug.getinfo(1).source if not src:find("obfuscated") then while true do task.wait(1) end end end end)`;
+
+      // 6. FINAL WRAP
+      const final = `-- [OBFUSCATED - HIGH PROTECTION]\n${atobLua}\n${antiTamper}\n${code}\n-- [END]`;
+
+      output.textContent = final;
+      setStatus('Selesai! Copy hasil di bawah.');
     }
+
+    // === EVENT LISTENERS ===
+    $('obfuscateBtn').onclick = obfuscateCode;
+
+    $('copyBtn').onclick = () => {
+      navigator.clipboard.writeText(output.textContent).then(() => {
+        setStatus('Tercopy ke clipboard!');
+      }).catch(() => {
+        const range = document.createRange();
+        range.selectNode(output);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        document.execCommand('copy');
+        window.getSelection().removeAllRanges();
+        setStatus('Tercopy (fallback)!');
+      });
+    };
+
+    // === TEST OTOMATIS ===
+    window.onload = () => {
+      input.value = 'print("Hello, Roblox!")\nwait(1)\nprint("Obfuscated!")';
+      setStatus('Contoh script sudah dimuat. Klik OBFUSCATE!');
+    };
   </script>
 </body>
 </html>
