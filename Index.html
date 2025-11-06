@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Roblox Lua Obfuscator - High Protection</title>
+  <title>Roblox Lua Obfuscator - High Protection (Fixed)</title>
   <style>
     body {
       font-family: 'Courier New', monospace;
@@ -41,7 +41,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>ROBLOX LUA OBFUSCATOR [HIGH PROTECTION]</h1>
+    <h1>ROBLOX LUA OBFUSCATOR [HIGH PROTECTION - FIXED]</h1>
     
     <label for="input">Masukkan Script Lua:</label>
     <textarea id="input" rows="10" placeholder="tempel script lua di sini..."></textarea>
@@ -132,23 +132,23 @@
 
       let code = input;
 
-      // 1. Ganti semua string jadi XOR encrypted
+      // 1. Ganti semua string jadi XOR encrypted dengan decoder Lua
       code = code.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/g, (match, str) => {
         const key = Math.random().toString(36).substring(2, 10);
         const encrypted = xorEncrypt(str, key);
         const decFunc = generateRandomVar();
-        return `(function() local ${decFunc}=function(s,k) local r='' for i=1,#s do r=r..string.char(string.byte(s,i)^string.byte(k,(i-1)%#k+1)) end return r end return ${decFunc}(atob("${encrypted}".gsub("-","+"):.gsub("_","/")..string.rep("=",(-#("${encrypted}")%4)%3)),"${key}") end)()`;
+        return `(function() local ${decFunc}=function(s,k) local r='' for i=1,#s do r=r..string.char(string.byte(s,i)~string.byte(k,(i-1)%#k+1)) end return r end return ${decFunc}(atob("${encrypted}":gsub("-","+"):gsub("_","/")..string.rep("=",(-#("${encrypted}")%4)%3)),"${key}") end)()`;
       });
 
       // 2. Rename local variables
       const varMap = {};
-      let varCounter = 0;
       code = code.replace(/local\s+([a-zA-Z_][a-zA-Z0-9_]*)/g, (match, name) => {
         if (!varMap[name]) {
           varMap[name] = generateRandomVar();
         }
         return `local ${varMap[name]}`;
       });
+      code = code.replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g, (match) => varMap[match] || match); // Ganti penggunaan var juga
 
       // 3. Inject junk code
       code = injectJunk(code, 20);
@@ -159,11 +159,35 @@
       // 5. Tambah anti-tamper
       code = antiTamper() + '\n' + code;
 
-      // 6. Wrap dengan self-executing environment
+      // 6. Wrap dengan self-executing environment + tambah polyfill atob Lua
       const env = generateRandomVar();
       const exec = generateRandomVar();
+      const atobPolyfill = `
+local atob = function(str)
+  local b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+  str = str:gsub("[^%w+/=]", "")
+  local padding = str:sub(-2) == "==" and 2 or (str:sub(-1) == "=" and 1 or 0)
+  local result = ""
+  local bytes = {}
+  for i = 1, #str, 4 do
+    local a = b64:find(str:sub(i,i)) - 1
+    local b = b64:find(str:sub(i+1,i+1)) - 1
+    local c = b64:find(str:sub(i+2,i+2)) - 1
+    local d = b64:find(str:sub(i+3,i+3)) - 1
+    table.insert(bytes, bit32.lshift(a, 2) + bit32.rshift(b, 4))
+    if c >= 0 then table.insert(bytes, bit32.lshift(bit32.band(b, 15), 4) + bit32.rshift(c, 2)) end
+    if d >= 0 then table.insert(bytes, bit32.lshift(bit32.band(c, 3), 6) + d) end
+  end
+  for i = 1, #bytes - padding do
+    result = result .. string.char(bytes[i])
+  end
+  return result
+end
+      `.trim();
+
       const finalCode = `
--- [=== OBFUSCATED BY HIGH PROTECTION OBFUSCATOR ===]
+-- [=== OBFUSCATED BY HIGH PROTECTION OBFUSCATOR (FIXED) ===]
+${atobPolyfill}
 local ${env} = getfenv()
 local ${exec} = (function()
   ${code}
@@ -177,41 +201,11 @@ ${exec}()
     }
 
     function copyOutput() {
-      const output = document.getElementById('output');
-      output.select();
-      document.execCommand('copy');
-      alert('Hasil obfuscated berhasil disalin!');
+      const output = document.getElementById('output').textContent;
+      navigator.clipboard.writeText(output).then(() => {
+        alert('Hasil obfuscated berhasil disalin!');
+      });
     }
-
-    // Polyfill atob untuk Roblox
-    setTimeout(() => {
-      const script = document.createElement('script');
-      script.innerHTML = `
-        if not atob then
-          atob = function(str)
-            local b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-            str = str:gsub("[^%w+/=]", "")
-            local padding = str:sub(-2) == "==" and 2 or (str:sub(-1) == "=" and 1 or 0)
-            local result = ""
-            local bytes = {}
-            for i = 1, #str, 4 do
-              local a = b64:find(str:sub(i,i)) - 1
-              local b = b64:find(str:sub(i+1,i+1)) - 1
-              local c = b64:find(str:sub(i+2,i+2)) - 1
-              local d = b64:find(str:sub(i+3,i+3)) - 1
-              table.insert(bytes, bit32.lshift(a, 2) + bit32.rshift(b, 4))
-              if c >= 0 then table.insert(bytes, bit32.lshift(bit32.band(b, 15), 4) + bit32.rshift(c, 2)) end
-              if d >= 0 then table.insert(bytes, bit32.lshift(bit32.band(c, 3), 6) + d) end
-            end
-            for i = 1, #bytes - padding do
-              result = result .. string.char(bytes[i])
-            end
-            return result
-          end
-        end
-      `;
-      document.body.appendChild(script);
-    }, 100);
   </script>
 </body>
 </html>
