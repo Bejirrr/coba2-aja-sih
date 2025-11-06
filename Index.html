@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Roblox Lua Obfuscator - HIGH PROTECTION</title>
+  <title>MoonVeil Style Obfuscator v1.4.5 - Roblox Lua</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -21,7 +21,7 @@
       border-radius: 8px;
     }
     h1 { text-align: center; text-shadow: 0 0 10px #0f0; margin-bottom: 20px; }
-    textarea, pre {
+    textarea, pre, input {
       width: 100%;
       background: #111;
       color: #0f0;
@@ -47,36 +47,41 @@
     }
     button:hover { background: #004400; }
     .status { text-align: center; font-size: 14px; margin: 10px 0; color: #0f0; }
+    label { color: #0f0; font-weight: bold; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>ROBLOX LUA OBFUSCATOR [HIGH PROTECTION]</h1>
-    <p class="status" id="status">Status: Siap</p>
+    <h1>MOONVEIL OBFUSCATOR v1.4.5 STYLE [ROBLOX LUA]</h1>
+    <p class="status" id="status">Status: Siap (MoonVeil Mode)</p>
 
     <label><strong>Script Lua Asli:</strong></label>
-    <textarea id="input" placeholder="print('Hello World')"></textarea>
+    <textarea id="input" placeholder="-- Contoh\nprint('Hello, MoonVeil!')\nwait(1)\nprint('Protected!')"></textarea>
 
-    <button id="obfuscateBtn">OBFUSCATE SEKARANG</button>
+    <label><strong>Watermark (Opsional):</strong></label>
+    <input type="text" id="watermark" placeholder="Your Discord/Server" value="Protected by MoonVeil Style">
+
+    <button id="obfuscateBtn">OBFUSCATE (MoonVeil Style)</button>
 
     <label><strong>Hasil Obfuscated:</strong></label>
-    <pre id="output">-- Output akan muncul di sini...</pre>
+    <pre id="output">-- Output MoonVeil-style akan muncul di sini...</pre>
 
     <button id="copyBtn">COPY HASIL</button>
   </div>
 
   <script>
-    // === UTILS ===
+    // === MOONVEIL-STYLE UTILS ===
     const $ = (id) => document.getElementById(id);
     const status = $('status');
     const input = $('input');
     const output = $('output');
+    const watermarkInput = $('watermark');
 
     function setStatus(msg) {
       status.textContent = 'Status: ' + msg;
     }
 
-    function xorEncrypt(str, key) {
+    function bxorEncrypt(str, key) {
       let result = '';
       for (let i = 0; i < str.length; i++) {
         result += String.fromCharCode(str.charCodeAt(i) ^ (key.charCodeAt(i % key.length) & 0xFF));
@@ -84,56 +89,52 @@
       return btoa(result).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
     }
 
-    function randomVar() {
+    function randomVar(prefix = '') {
       const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-      let v = '_';
-      for (let i = 0; i < 10; i++) v += chars[Math.floor(Math.random() * chars.length)];
+      let v = prefix || '_mv_';
+      for (let i = 0; i < 2 + Math.floor(Math.random() * 4); i++) v += chars[Math.floor(Math.random() * chars.length)];
       return v;
+    }
+
+    function generateLocals(count = 40) {
+      let locals = [];
+      for (let i = 0; i < count; i++) {
+        locals.push(randomVar());
+      }
+      return locals.join(',');
     }
 
     function injectJunk(code) {
       const junks = [
-        'local _ = math.random(1,999999)',
-        'local __ = string.rep("x", math.random(5,30))',
-        'for _=1,math.random(3,15) do end',
+        'local _ = math.random(10000,999999)',
+        'string.rep("a", math.random(5,20))',
+        'for _=1,math.random(3,10) do end',
         'task.wait(math.random()/1000)',
-        'local ___ = os.clock()'
+        'local __ = os.clock()'
       ];
       const lines = code.split('\n');
       const result = [];
       let junkCount = 0;
       for (let line of lines) {
         result.push(line.trim());
-        if (Math.random() < 0.25 && junkCount < 18) {
+        if (Math.random() < 0.35 && junkCount < 30) {
           result.push(junks[Math.floor(Math.random() * junks.length)]);
           junkCount++;
         }
       }
-      return result.join('\n');
+      return result.join(';');
     }
 
-    // === ATOB POLYFILL UNTUK LUA ===
-    const atobLua = `
-local function atob(str)
-  local b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-  str = str:gsub("[^%w+/=]", "")
-  local pad = (str:sub(-2,-1) == "==" and 2) or (str:sub(-1) == "=" and 1) or 0
-  local out = {}
-  for i = 1, #str, 4 do
-    local a = b64:find(str:sub(i,i)) - 1
-    local b = b64:find(str:sub(i+1,i+1)) - 1
-    local c = b64:find(str:sub(i+2,i+2)) - 1
-    local d = b64:find(str:sub(i+3,i+3)) - 1
-    table.insert(out, bit32.lshift(a, 2) + bit32.rshift(b, 4))
-    if c >= 0 then table.insert(out, bit32.lshift(bit32.band(b,15),4) + bit32.rshift(c,2)) end
-    if d >= 0 then table.insert(out, bit32.lshift(bit32.band(c,3),6) + d) end
-  end
-  local result = ""
-  for i = 1, #out - pad do result = result .. string.char(out[i]) end
-  return result
-end`.trim();
+    // === ATOB POLYFILL + BXOR DECODE ===
+    const atobLua = `local function ${randomVar('atob')}(str) local b64="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";str=str:gsub("[^%w+/=]","");local pad=str:sub(-2)=="==" and 2 or str:sub(-1)=="=" and 1 or 0;local out={};for i=1,#str,4 do local a=b64:find(str:sub(i,i))-1;local b=b64:find(str:sub(i+1,i+1))-1;local c=b64:find(str:sub(i+2,i+2))-1;local d=b64:find(str:sub(i+3,i+3))-1;table.insert(out,bit32.lshift(a,2)+bit32.rshift(b,4));if c>=0 then table.insert(out,bit32.lshift(bit32.band(b,15),4)+bit32.rshift(c,2)) end;if d>=0 then table.insert(out,bit32.lshift(bit32.band(c,3),6)+d) end end;local res="";for i=1,#out-pad do res=res..string.char(out[i]) end;return res end`;
 
-    // === MAIN OBFUSCATE ===
+    // === ANTI-TAMPER (MoonVeil-like) ===
+    function antiTamper() {
+      const checkVar = randomVar();
+      return `local ${checkVar}=function() while true do task.wait(1);local src=debug.getinfo(1).source;if not src:find("moonveil") or #src<100 then while true do end end end end;spawn(${checkVar})`;
+    }
+
+    // === MAIN OBFUSCATE (MoonVeil Style) ===
     function obfuscateCode() {
       const raw = input.value.trim();
       if (!raw) {
@@ -141,20 +142,21 @@ end`.trim();
         return;
       }
 
-      setStatus('Sedang meng-obfuscate...');
-      
+      const watermark = watermarkInput.value.trim() || 'Protected by MoonVeil Style';
+      setStatus('Sedang obfuscate MoonVeil-style...');
+
       let code = raw;
 
-      // 1. ENKRIPSI STRING
+      // 1. STRING ENCRYPTION (BXOR + Base64)
       code = code.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/g, (m, s) => {
-        if (s.includes('\n')) return m; // skip multiline
+        if (s.includes('\n')) return m;
         const key = Math.random().toString(36).substr(2, 8);
-        const enc = xorEncrypt(s, key);
-        const fn = randomVar();
-        return `(function() local ${fn}=function(s,k) local r='' for i=1,#s do r=r..string.char(string.byte(s,i)~string.byte(k,(i-1)%#k+1)) end return r end return ${fn}(atob("${enc}":gsub("-","+"):gsub("_","/")..string.rep("=",(-#("${enc}")%4)%3)),"${key}") end)()`;
+        const enc = bxorEncrypt(s, key);
+        const decVar = randomVar('dec');
+        return `(function() local ${decVar}=function(s,k)local r=''for i=1,#s do r=r..string.char(bit32.bxor(string.byte(s,i),string.byte(k,(i-1)%#k+1)))end return r end return ${decVar}(${randomVar('atob')}("${enc}":gsub("-","+"):gsub("_","/")..string.rep("=",(-#("${enc}")%4)%3),"${key}") end)()`;
       });
 
-      // 2. RENAME LOCAL VAR
+      // 2. VARIABLE RENAME
       const varMap = {};
       code = code.replace(/local\s+([a-zA-Z_][a-zA-Z0-9_]*)/g, (m, name) => {
         if (!varMap[name]) varMap[name] = randomVar();
@@ -162,35 +164,38 @@ end`.trim();
       });
       code = code.replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g, m => varMap[m] || m);
 
-      // 3. JUNK CODE
+      // 3. JUNK + SEMI-COLON
       code = injectJunk(code);
 
-      // 4. CONTROL FLOW (simplified)
-      const stateVar = randomVar();
-      const execVar = randomVar();
-      code = `local ${stateVar}=0; local ${execVar}=function() while true do if ${stateVar}==0 then ${code.replace(/\n/g, '\n    ')} break end end end; ${execVar}()`;
+      // 4. CONTROL FLOW FLATTEN (While-If State Machine)
+      const stateVar = randomVar('state');
+      const loopVar = randomVar('loop');
+      const initState = Math.floor(Math.random() * 10000) + 10000;
+      const endState = Math.floor(Math.random() * 10000) + 40000;
+      const midState = Math.floor(Math.random() * 10000) + 30000;
+      code = `local ${stateVar}=${initState};while ${stateVar}~=${endState} do if ${stateVar}>=${midState} then if ${stateVar}>${midState} then ${stateVar}=${endState}else ${code} end else end end`;
 
-      // 5. ANTI-TAMPER
-      const checkVar = randomVar();
-      const antiTamper = `spawn(function() while true do task.wait(1) local src=debug.getinfo(1).source if not src:find("obfuscated") then while true do task.wait(1) end end end end)`;
+      // 5. MASSIVE LOCALS + BUILT-INS
+      const locals = generateLocals(40);
+      const builtIns = `local ${randomVar()},${randomVar()},${randomVar()},${randomVar()},${randomVar()},${randomVar()}=getmetatable,type,pairs,bit32.bxor,string.char,string.byte`;
 
-      // 6. FINAL WRAP
-      const final = `-- [OBFUSCATED - HIGH PROTECTION]\n${atobLua}\n${antiTamper}\n${code}\n-- [END]`;
+      // 6. WATERMARK + ANTI-TAMPER + WRAP
+      const header = `-- This script was generated using the MoonVeil Obfuscator v1.4.5 [https://moonveil.cc]\n-- ${watermark}`;
+      const final = `${header}\n${builtIns};local ${locals};${atobLua};${antiTamper()};${code}`;
 
       output.textContent = final;
-      setStatus('Selesai! Copy hasil di bawah.');
+      setStatus('Selesai! Output MoonVeil-style siap copy.');
     }
 
-    // === EVENT LISTENERS ===
+    // === EVENTS ===
     $('obfuscateBtn').onclick = obfuscateCode;
 
     $('copyBtn').onclick = () => {
       navigator.clipboard.writeText(output.textContent).then(() => {
-        setStatus('Tercopy ke clipboard!');
+        setStatus('Tercopy! Paste ke executor.');
       }).catch(() => {
         const range = document.createRange();
-        range.selectNode(output);
-        window.getSelection().removeAllRanges();
+        range.selectNodeContents(output);
         window.getSelection().addRange(range);
         document.execCommand('copy');
         window.getSelection().removeAllRanges();
@@ -198,10 +203,9 @@ end`.trim();
       });
     };
 
-    // === TEST OTOMATIS ===
+    // === AUTO-LOAD TEST ===
     window.onload = () => {
-      input.value = 'print("Hello, Roblox!")\nwait(1)\nprint("Obfuscated!")';
-      setStatus('Contoh script sudah dimuat. Klik OBFUSCATE!');
+      setStatus('MoonVeil v1.4.5 Style aktif. Coba obfuscate!');
     };
   </script>
 </body>
